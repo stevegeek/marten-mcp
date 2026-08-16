@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Shared per-CHECKOUT compiler cache + an exclusive whole-run lock.
+#
+# Bare `crystal spec` shares ~/.cache/crystal/crystal-run-spec.tmp (fixed name,
+# no -o), so a concurrent session's compile replaces the binary a running suite
+# is executing, and lazy backtrace decoding — which re-reads the executable —
+# then raises File::NotFoundError mid-suite. Parallel agent sessions work on
+# these shards, so that is a live hazard, not a theoretical one.
+#
+# The cache is keyed per CHECKOUT (warm for every session working here; a git
+# worktree hashes to its own key and still runs in parallel), and the lock
+# serializes whole compile+run cycles. A run that finds the lock held waits —
+# almost always shorter than the cold compile it replaces. A lock whose holder
+# pid is dead is stolen.
+checkout_key=$(pwd -P | shasum | cut -c1-12)
+export CRYSTAL_CACHE_DIR="${TMPDIR:-/tmp}/marten-mcp-spec-cache-${checkout_key}"
+lockdir="${CRYSTAL_CACHE_DIR}.lock"
+
+mkdir -p "$CRYSTAL_CACHE_DIR"
+waited=0
+while ! mkdir "$lockdir" 2>/dev/null; do
+  holder=$(cat "$lockdir/pid" 2>/dev/null || true)
+  if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
+    echo "spec: clearing stale lock (pid $holder gone)" >&2
+    rm -rf "$lockdir"
+    continue
+  fi
+  # A lockdir with no pid for 30s+ means its owner died between mkdir and
+  # writing the pid — steal it rather than waiting forever.
+  if [ -z "$holder" ] && [ "$waited" -ge 30 ]; then
+    echo "spec: clearing ownerless lock" >&2
+    rm -rf "$lockdir"
+    continue
+  fi
+  if [ "$waited" -eq 0 ]; then
+    echo "spec: another run holds the lock (pid ${holder:-?}) — waiting for it to finish…" >&2
+  fi
+  sleep 5
+  waited=$((waited + 5))
+  if [ "$waited" -ge 1800 ]; then
+    echo "spec: gave up after 30min waiting on $lockdir" >&2
+    exit 1
+  fi
+done
+echo $$ > "$lockdir/pid"
+trap 'rm -rf "$lockdir"' EXIT
+
+# No exec: the EXIT trap must survive to release the lock when the suite ends.
+# spec/spec_helper.cr sets MARTEN_ENV itself, so this does not need to.
+./script/cr spec "$@"

@@ -1,0 +1,20 @@
+name: marten_mcp
+version: 0.1.0
+
+authors:
+  - Stephen Ierodiaconou <stevegeek@gmail.com>
+
+crystal: '>= 1.20.1'
+
+license: MIT
+
+dependencies:
+  marten:
+    github: martenframework/marten
+    # marten publishes no version tags; match the other Marten shards' version-based
+    # requirement so both resolve. Pin an exact commit via shard.override.yml if needed.
+    version: ">= 0.2.0"
+
+development_dependencies:
+  sqlite3:
+    github: crystal-lang/crystal-sqlite3

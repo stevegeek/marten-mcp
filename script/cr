@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+CRYSTAL_INSTALL="$(asdf where crystal)"
+export CRYSTAL_LIBRARY_PATH="${CRYSTAL_LIBRARY_PATH:+$CRYSTAL_LIBRARY_PATH:}${CRYSTAL_INSTALL}/embedded/lib"
+exec crystal "$@"
