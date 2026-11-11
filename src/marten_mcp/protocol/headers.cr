@@ -15,7 +15,7 @@ module Marten::MCP
       SENTINEL_SUFFIX = "?="
 
       def mismatch(request : Marten::HTTP::Request, envelope : Envelope) : String?
-        return nil unless envelope.modern?
+        return unless envelope.modern?
 
         version = request.headers["MCP-Protocol-Version"]?
         return "MCP-Protocol-Version header is missing" if version.nil?
@@ -28,7 +28,7 @@ module Marten::MCP
         return "Mcp-Method header does not match the body" if method != envelope.method
 
         expected = envelope.params["name"]?.try(&.as_s?)
-        return nil if expected.nil?
+        return if expected.nil?
         name = request.headers["Mcp-Name"]?
         return "Mcp-Name header is missing" if name.nil?
         return "Mcp-Name header does not match the body" if decode(name) != expected

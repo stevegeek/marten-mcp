@@ -163,14 +163,14 @@ module Marten::MCP
           if structured = tool_result.structured
             io << %(,"structuredContent":) << structured
           end
-          io << %(,"isError":) << tool_result.is_error << "}"
+          io << %(,"isError":) << tool_result.is_error? << "}"
         end
 
         # Reuses result(...) only for its payload, so the modern/legacy
         # resultType rule stays in one place instead of being duplicated here.
         Outcome.new(
           result(envelope, body).payload, 200,
-          tool_result.is_error ? "error" : "ok",
+          tool_result.is_error? ? "error" : "ok",
           tool_name: name, summary: tool_result.summary)
       end
 
