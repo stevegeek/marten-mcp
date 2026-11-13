@@ -15,6 +15,13 @@ dependencies:
     # requirement so both resolve. Pin an exact commit via shard.override.yml if needed.
     version: ">= 0.2.0"
 
+targets:
+  ameba:
+    main: lib/ameba/bin/ameba.cr
+
 development_dependencies:
   sqlite3:
     github: crystal-lang/crystal-sqlite3
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 1.7.0
