@@ -103,18 +103,7 @@ module Marten::MCP
 
         resolved = mcp_authenticate(request, ip)
         if resolved.is_a?(AuthFailure)
-          # Switched on status, not a single `429 ? : 401` shortcut — a future
-          # AuthFailure carrying a status neither of those two branches names
-          # (e.g. a 403) must reach the caller as itself, not get silently
-          # rewritten to 401 by falling through to the default branch.
-          response = case resolved.status
-                     when 429
-                       rate_limited
-                     when 401
-                       unauthorized(resolved.message)
-                     else
-                       rpc_error(nil, -32001, resolved.message, status: resolved.status)
-                     end
+          response = auth_failure_response(resolved)
           # The failure travels to the audit hook whole. A consumer subclass of
           # AuthFailure names the presented credential when the digest matched
           # a real row — the row that answers "is the token I revoked still
@@ -144,39 +133,7 @@ module Marten::MCP
           return finish(caller, ip, envelope, "error", -32020, started, response)
         end
 
-        outcome = mcp_dispatcher(caller).call(envelope)
-        response = if outcome.status == 202
-                     empty(status: 202)
-                   else
-                     json_raw(outcome.payload, status: outcome.status)
-                   end
-        # Spec §6's insufficient-scope challenge. Set here rather than in the
-        # dispatcher because the dispatcher builds no HTTP response.
-        if challenge = outcome.challenge
-          response.headers["WWW-Authenticate"] = challenge
-        end
-
-        mcp_audit(CallRecord.new(
-          caller: caller, ip: ip,
-          rpc_method: envelope.method,
-          # A 202 (every notification, not just tools/call ones) never runs
-          # the dispatcher's method case, so Outcome#tool_name is always nil
-          # for it — fall back to what the envelope itself named, but ONLY
-          # for tools/call: params.name is a tool-call-shaped field, and a
-          # method that never named a tool (e.g. resources/list carrying an
-          # unrelated "name" param) must not have one attributed to it.
-          tool_name: outcome.tool_name || (envelope.method == "tools/call" ? envelope.tool_name : nil),
-          # Distinct from "ok": a notification is accepted, not executed. A
-          # notified tools/call carries a tool_name and arguments but never
-          # ran — "ok" would read as a successful call that never happened.
-          outcome: outcome.status == 202 ? "accepted" : outcome.outcome,
-          error_code: outcome.error_code,
-          arguments: envelope.method == "tools/call" ? envelope.arguments : nil,
-          summary: outcome.summary,
-          duration_us: elapsed_us(started),
-          client_name: envelope.client_name, client_version: envelope.client_version,
-          protocol_version: envelope.declared_version,
-        ))
+        response = dispatch(caller, ip, envelope, started)
         recorded = true
         response
       rescue error
@@ -192,7 +149,7 @@ module Marten::MCP
         #
         # `recorded` guards the one case where that same guarantee would
         # tip over into a DOUBLE row: something raising after the tail
-        # record above already succeeded (a header write, a metrics call —
+        # record in `dispatch` already succeeded (a header write, a metrics call —
         # nothing does today, but nothing stops one being added). Today the
         # only statement between the record and returning is a bare local
         # read that cannot raise, so this is currently unreachable — the
@@ -210,10 +167,67 @@ module Marten::MCP
       end
     end
 
+    # The dispatched path's response and its tail audit row. `post` marks the
+    # call recorded only once this returns.
+    private def dispatch(
+      caller : Caller, ip : String?, envelope : Protocol::Envelope,
+      started : Time::Instant,
+    ) : Marten::HTTP::Response
+      outcome = mcp_dispatcher(caller).call(envelope)
+      response = if outcome.status == 202
+                   empty(status: 202)
+                 else
+                   json_raw(outcome.payload, status: outcome.status)
+                 end
+      # Spec §6's insufficient-scope challenge. Set here rather than in the
+      # dispatcher because the dispatcher builds no HTTP response.
+      if challenge = outcome.challenge
+        response.headers["WWW-Authenticate"] = challenge
+      end
+
+      mcp_audit(CallRecord.new(
+        caller: caller, ip: ip,
+        rpc_method: envelope.method,
+        # A 202 (every notification, not just tools/call ones) never runs
+        # the dispatcher's method case, so Outcome#tool_name is always nil
+        # for it — fall back to what the envelope itself named, but ONLY
+        # for tools/call: params.name is a tool-call-shaped field, and a
+        # method that never named a tool (e.g. resources/list carrying an
+        # unrelated "name" param) must not have one attributed to it.
+        tool_name: outcome.tool_name || (envelope.method == "tools/call" ? envelope.tool_name : nil),
+        # Distinct from "ok": a notification is accepted, not executed. A
+        # notified tools/call carries a tool_name and arguments but never
+        # ran — "ok" would read as a successful call that never happened.
+        outcome: outcome.status == 202 ? "accepted" : outcome.outcome,
+        error_code: outcome.error_code,
+        arguments: envelope.method == "tools/call" ? envelope.arguments : nil,
+        summary: outcome.summary,
+        duration_us: elapsed_us(started),
+        client_name: envelope.client_name, client_version: envelope.client_version,
+        protocol_version: envelope.declared_version,
+      ))
+      response
+    end
+
+    # Switched on status, not a single `429 ? : 401` shortcut — a future
+    # AuthFailure carrying a status neither of those two branches names
+    # (e.g. a 403) must reach the caller as itself, not get silently
+    # rewritten to 401 by falling through to the default branch.
+    private def auth_failure_response(failure : AuthFailure) : Marten::HTTP::Response
+      case failure.status
+      when 429
+        rate_limited
+      when 401
+        unauthorized(failure.message)
+      else
+        rpc_error(nil, -32001, failure.message, status: failure.status)
+      end
+    end
+
     # The single audit-and-return path for every early exit (Origin, auth
     # failure, the parse/shape/header errors that precede the dispatcher,
     # and the catch-all rescue) — the IP rate limit is the one exception,
-    # see above. One call site here — and one at the tail of `post` for the
+    # see above. One call site here — and one in `dispatch` for the
     # dispatched path — means every other exit produces exactly one row.
     private def finish(
       caller : Caller?, ip : String?, envelope : Protocol::Envelope?,

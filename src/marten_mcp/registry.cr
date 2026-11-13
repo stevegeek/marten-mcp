@@ -19,7 +19,7 @@ module Marten::MCP
     # Sorted by name: clients cache the tool list and models prompt-cache it,
     # so the order must not wobble between requests.
     def visible_for(caller : Caller) : Array(Tool)
-      ALL.select { |tool| caller.can?(tool.capability) }.sort_by(&.name)
+      ALL.select { |tool| caller.can?(tool.capability) }.sort_by!(&.name)
     end
 
     def find(name : String) : Tool?

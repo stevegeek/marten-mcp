@@ -41,8 +41,8 @@ describe Marten::MCP::Args do
 
   describe "#bool?" do
     it "returns the value when the key is present" do
-      args(%({"active":true})).bool?("active").should eq true
-      args(%({"active":false})).bool?("active").should eq false
+      args(%({"active":true})).bool?("active").should be_true
+      args(%({"active":false})).bool?("active").should be_false
     end
 
     it "returns nil when the key is absent" do

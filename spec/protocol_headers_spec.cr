@@ -7,17 +7,17 @@ end
 private def modern_list_envelope : Marten::MCP::Protocol::Envelope
   body = %({"jsonrpc":"2.0","id":1,"method":"tools/list",) +
          %("params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}})
-  Marten::MCP::Protocol::Envelope.parse(body).not_nil!
+  Marten::MCP::Protocol::Envelope.parse(body).should_not be_nil
 end
 
 private def modern_call_envelope(name : String) : Marten::MCP::Protocol::Envelope
   body = %({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"#{name}",) +
          %("_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}})
-  Marten::MCP::Protocol::Envelope.parse(body).not_nil!
+  Marten::MCP::Protocol::Envelope.parse(body).should_not be_nil
 end
 
 private def legacy_envelope : Marten::MCP::Protocol::Envelope
-  Marten::MCP::Protocol::Envelope.parse(%({"jsonrpc":"2.0","id":1,"method":"ping","params":{}})).not_nil!
+  Marten::MCP::Protocol::Envelope.parse(%({"jsonrpc":"2.0","id":1,"method":"ping","params":{}})).should_not be_nil
 end
 
 describe Marten::MCP::Protocol::Headers do
