@@ -44,7 +44,7 @@ private def envelope(
   end
   id_member = id.nil? ? "" : %("id":#{id},)
   body = %({"jsonrpc":"2.0",#{id_member}"method":#{method.to_json},"params":#{params}})
-  Marten::MCP::Protocol::Envelope.parse(body).not_nil!
+  Marten::MCP::Protocol::Envelope.parse(body).should_not be_nil
 end
 
 private def result_of(payload : String) : JSON::Any
@@ -398,7 +398,7 @@ describe Marten::MCP::Protocol::Dispatcher do
 
       both = SpecCaller.new(Set{:spec_read, :spec_write})
       result = result_of(dispatcher(both).call(envelope("tools/list")).payload)
-      result["tools"].as_a.map { |tool| tool["name"].as_s }.should eq [
+      result["tools"].as_a.map(&.["name"].as_s).should eq [
         "a_write", "strict", "z_read",
       ]
     end
@@ -408,7 +408,7 @@ describe Marten::MCP::Protocol::Dispatcher do
       Marten::MCP::Registry.register(WriteTool.new)
 
       payload = dispatcher.call(envelope("tools/list")).payload
-      result_of(payload)["tools"].as_a.map { |tool| tool["name"].as_s }.should eq ["z_read"]
+      result_of(payload)["tools"].as_a.map(&.["name"].as_s).should eq ["z_read"]
       payload.should_not contain "a_write"
     end
 

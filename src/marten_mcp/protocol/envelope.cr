@@ -32,26 +32,26 @@ module Marten::MCP
       # guarding it here once is what keeps those reads safe too.
       def self.parse(body : String) : Envelope?
         raw = JSON.parse(body).as_h?
-        return nil if raw.nil?
+        return if raw.nil?
         method = raw["method"]?.try(&.as_s?)
-        return nil if method.nil?
+        return if method.nil?
 
         # params, if present at all, MUST be an object — a JSON-RPC request
         # with a positional (array) params is not a shape this server
         # understands, so it is Invalid Request rather than silently emptied.
         params_field = raw["params"]?
-        return nil if params_field && params_field.as_h?.nil?
+        return if params_field && params_field.as_h?.nil?
         params = params_field || EMPTY_PARAMS
 
         meta = params["_meta"]?.try(&.as_h?)
-        client = meta.try { |m| m[META_CLIENT_INFO_KEY]? }.try(&.as_h?)
+        client = meta.try { |fields| fields[META_CLIENT_INFO_KEY]? }.try(&.as_h?)
         Envelope.new(
           id: raw["id"]?,
           method: method,
           params: params,
-          declared_version: meta.try { |m| m[META_VERSION_KEY]? }.try(&.as_s?),
-          client_name: client.try { |c| c["name"]? }.try(&.as_s?),
-          client_version: client.try { |c| c["version"]? }.try(&.as_s?),
+          declared_version: meta.try { |fields| fields[META_VERSION_KEY]? }.try(&.as_s?),
+          client_name: client.try { |info| info["name"]? }.try(&.as_s?),
+          client_version: client.try { |info| info["version"]? }.try(&.as_s?),
         )
       rescue JSON::ParseException
         nil

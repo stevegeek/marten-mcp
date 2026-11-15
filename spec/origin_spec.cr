@@ -37,10 +37,9 @@ describe Marten::MCP::Origin do
 
     it "returns a 403 failure for a foreign host" do
       Marten.settings.allowed_hosts = ["example.com"]
-      failure = Marten::MCP::Origin.failure(request_with("https://evil.example.net"))
-      failure.should_not be_nil
-      failure.not_nil!.status.should eq 403
-      failure.not_nil!.message.should eq "Origin not allowed"
+      failure = Marten::MCP::Origin.failure(request_with("https://evil.example.net")).should_not be_nil
+      failure.status.should eq 403
+      failure.message.should eq "Origin not allowed"
     end
 
     # host is nil here, so this never reaches allowed_origin_host? — it fails

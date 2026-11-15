@@ -165,7 +165,7 @@ describe Marten::MCP::ToolResult do
     it "sets is_error and the tool error summary" do
       result = Marten::MCP::ToolResult.error("boom")
       result.text.should eq "boom"
-      result.is_error.should be_true
+      result.is_error?.should be_true
       result.summary.should eq "tool error"
       result.structured.should be_nil
     end

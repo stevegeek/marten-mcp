@@ -18,7 +18,7 @@ class SpecEndpointHandler < Marten::MCP::EndpointHandler
   protect_from_forgery false
 
   class_property audited = [] of Marten::MCP::CallRecord
-  class_property rate_limited = false
+  class_property? rate_limited = false
   class_property authenticate : Proc(Marten::MCP::Caller | Marten::MCP::AuthFailure) = -> { SpecCaller.new(Set{:read}).as(Marten::MCP::Caller | Marten::MCP::AuthFailure) }
 
   def self.reset! : Nil
@@ -32,7 +32,7 @@ class SpecEndpointHandler < Marten::MCP::EndpointHandler
   end
 
   def mcp_ip_rate_limited?(ip : String?) : Bool
-    self.class.rate_limited
+    self.class.rate_limited?
   end
 
   def mcp_authenticate(request, ip) : Marten::MCP::Caller | Marten::MCP::AuthFailure

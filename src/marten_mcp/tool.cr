@@ -5,7 +5,7 @@ module Marten::MCP
   struct ToolResult
     getter text : String
     getter structured : String?
-    getter is_error : Bool
+    getter? is_error : Bool
     getter summary : String?
 
     def initialize(@text, @structured = nil, @is_error = false, @summary = nil)

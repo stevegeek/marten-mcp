@@ -21,9 +21,9 @@ module Marten::MCP
     # it names one of our own hosts; an AuthFailure otherwise.
     def failure(request : Marten::HTTP::Request) : AuthFailure?
       origin = request.headers["Origin"]?
-      return nil if origin.nil? || origin.empty?
+      return if origin.nil? || origin.empty?
       host = URI.parse(origin).host
-      return nil if host && allowed_origin_host?(host)
+      return if host && allowed_origin_host?(host)
       AuthFailure.new(403, "Origin not allowed")
     rescue Exception
       # origin is attacker-controlled. URI.parse does not only raise

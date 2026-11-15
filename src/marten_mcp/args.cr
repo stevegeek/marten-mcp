@@ -29,7 +29,7 @@ module Marten::MCP
 
     def string?(key : String) : String?
       value = @raw[key]?
-      return nil if value.nil? || value.raw.nil?
+      return if value.nil? || value.raw.nil?
       string = value.as_s?
       raise Invalid.new(key, "#{key} must be a string") if string.nil?
       string.presence
@@ -41,7 +41,7 @@ module Marten::MCP
 
     def bool?(key : String) : Bool?
       value = @raw[key]?
-      return nil if value.nil? || value.raw.nil?
+      return if value.nil? || value.raw.nil?
       boolean = value.as_bool?
       raise Invalid.new(key, "#{key} must be true or false") if boolean.nil?
       boolean
@@ -49,7 +49,7 @@ module Marten::MCP
 
     def int?(key : String) : Int32?
       value = @raw[key]?
-      return nil if value.nil? || value.raw.nil?
+      return if value.nil? || value.raw.nil?
       number = value.as_i64?
       raise Invalid.new(key, "#{key} must be an integer") if number.nil?
       # `.to_i32` is a CHECKED conversion — it raises OverflowError, not
